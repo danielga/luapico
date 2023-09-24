@@ -31,15 +31,6 @@
 #include "lvm.h"
 
 
-uint8_t shell_get_interrupt (void);
-void luaL_error (lua_State *L, const char *msg);
-
-void check_for_interrupt (lua_State *L)
-  {
-  if (shell_get_interrupt ())
-   luaL_error (L, "Interrupted");
-  }
-
 /*
 ** By default, use jump tables in the main interpreter loop on gcc
 ** and compatible compilers.
@@ -1613,8 +1604,7 @@ void luaV_execute (lua_State *L, CallInfo *ci) {
         }
         vmbreak;
       }
-      vmcase(OP_CALL) { 
-	check_for_interrupt(L);
+      vmcase(OP_CALL) {
         CallInfo *newci;
         int b = GETARG_B(i);
         int nresults = GETARG_C(i) - 1;

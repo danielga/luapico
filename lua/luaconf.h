@@ -89,8 +89,6 @@
 @@ LUA_32BITS enables Lua with 32-bit integers and 32-bit floats.
 */
 /* #define LUA_32BITS */
-// KB
-#define LUA_32BITS 
 
 
 /*
@@ -195,28 +193,39 @@
 */
 #define LUA_LDIR	"!\\lua\\"
 #define LUA_CDIR	"!\\"
-
-//KB
-
-#define LUA_CPATH_DEFAULT "" 
-#define LUA_PATH_DEFAULT  ".\\?.lua" 
-
-
-#else			/* }{ */
-
-
-#define LUA_ROOT	"/"
-#define LUA_LDIR	LUA_ROOT 
-#define LUA_CDIR	LUA_ROOT 
+#define LUA_SHRDIR	"!\\..\\share\\lua\\" LUA_VDIR "\\"
 
 #if !defined(LUA_PATH_DEFAULT)
 #define LUA_PATH_DEFAULT  \
-		"./?.lua;" "./?/init.lua;" "/lib/?.lua;" "/lib/?/init.lua"
+		LUA_LDIR"?.lua;"  LUA_LDIR"?\\init.lua;" \
+		LUA_CDIR"?.lua;"  LUA_CDIR"?\\init.lua;" \
+		LUA_SHRDIR"?.lua;" LUA_SHRDIR"?\\init.lua;" \
+		".\\?.lua;" ".\\?\\init.lua"
 #endif
 
 #if !defined(LUA_CPATH_DEFAULT)
 #define LUA_CPATH_DEFAULT \
-		"?.so"
+		LUA_CDIR"?.dll;" \
+		LUA_CDIR"..\\lib\\lua\\" LUA_VDIR "\\?.dll;" \
+		LUA_CDIR"loadall.dll;" ".\\?.dll"
+#endif
+
+#else			/* }{ */
+
+#define LUA_ROOT	"/usr/local/"
+#define LUA_LDIR	LUA_ROOT "share/lua/" LUA_VDIR "/"
+#define LUA_CDIR	LUA_ROOT "lib/lua/" LUA_VDIR "/"
+
+#if !defined(LUA_PATH_DEFAULT)
+#define LUA_PATH_DEFAULT  \
+		LUA_LDIR"?.lua;"  LUA_LDIR"?/init.lua;" \
+		LUA_CDIR"?.lua;"  LUA_CDIR"?/init.lua;" \
+		"./?.lua;" "./?/init.lua"
+#endif
+
+#if !defined(LUA_CPATH_DEFAULT)
+#define LUA_CPATH_DEFAULT \
+		LUA_CDIR"?.so;" LUA_CDIR"loadall.so;" "./?.so"
 #endif
 
 #endif			/* } */
@@ -415,11 +424,11 @@
 
 #define l_floatatt(n)		(FLT_##n)
 
-#define LUAI_UACNUMBER   double 
+#define LUAI_UACNUMBER	double
 
 #define LUA_NUMBER_FRMLEN	""
-#define LUA_NUMBER_FMT		"%f" 
-// KB -- %g is broken in the pico sdk
+#define LUA_NUMBER_FMT		"%.7g"
+
 #define l_mathop(op)		op##f
 
 #define lua_str2number(s,p)	strtof((s), (p))

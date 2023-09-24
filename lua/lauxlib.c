@@ -8,14 +8,14 @@
 #define LUA_LIB
 
 #include "lprefix.h"
+
+
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <shell/shell.h> // KB 
-#include <klib/string.h> // KB 
-#include <storage/storage.h> // KB
+
 
 /*
 ** This file uses only the official API of Lua.
@@ -753,22 +753,6 @@ static int skipcomment (LoadF *lf, int *cp) {
 
 LUALIB_API int luaL_loadfilex (lua_State *L, const char *filename,
                                              const char *mode) {
-  // KB
-  uint8_t *buffer;
-  int n = 0;
-  ErrCode err = storage_read_file (filename, &buffer, &n);
-  if (err == 0)
-    {
-    int ret = luaL_loadbuffer (L, (const char *)buffer, n, filename);
-    free (buffer);
-    return ret;
-    }
-  else
-    {
-    luaL_error (L, shell_strerror (err));
-    return -1;
-    }
-
   LoadF lf;
   int status, readstatus;
   int c;
@@ -897,34 +881,6 @@ LUALIB_API const char *luaL_tolstring (lua_State *L, int idx, size_t *len) {
       case LUA_TNIL:
         lua_pushliteral(L, "nil");
         break;
-      case LUA_TTABLE: // KB -- this section added to be able to display
-                       //   tables without additional code
-        {
-        String *result = string_create_empty();
-        lua_pushvalue (L, idx);
-        // stack now contains: -1 => table
-        lua_pushnil (L);
-        // stack now contains: -1 => nil; -2 => table
-        while (lua_next (L, -2))
-          {
-          // stack now contains: -1 => value; -2 => key; -3 => table
-          // copy the key so that lua_tostring does not modify the original
-          lua_pushvalue (L, -2);
-          // stack now contains: 
-	  //   -1 => key; -2 => value; -3 => key; -4 => table
-          const char *key = lua_tostring(L, -1);
-          const char *value = lua_tostring(L, -2);
-	  string_append_printf (result, "%s=>%s ", key, value); 
-          // pop value + copy of key, leaving original key
-          lua_pop (L, 2);
-          // stack now contains: -1 => key; -2 => table
-          }
-        // Pop table
-        lua_pop(L, 1);
-        lua_pushstring(L, string_cstr(result));
-	string_destroy (result);
-        break;
-	}
       default: {
         int tt = luaL_getmetafield(L, idx, "__name");  /* try name */
         const char *kind = (tt == LUA_TSTRING) ? lua_tostring(L, -1) :

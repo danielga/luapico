@@ -13,6 +13,7 @@
 
 #include "lprefix.h"
 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -429,14 +430,10 @@ static int ll_loadlib (lua_State *L) {
 
 
 static int readable (const char *filename) {
-  // KB
-  
-  //FILE *f = fopen(filename, "r");  /* try to open file */
-  //if (f == NULL) return 0;  /* open failed */
-  //fclose(f);
-  //return 1;
-
-  return storage_file_exists (filename);
+  FILE *f = fopen(filename, "r");  /* try to open file */
+  if (f == NULL) return 0;  /* open failed */
+  fclose(f);
+  return 1;
 }
 
 
@@ -578,6 +575,49 @@ static int loadfunc (lua_State *L, const char *filename, const char *modname) {
 }
 
 
+static int searcher_C (lua_State *L) {
+  const char *name = luaL_checkstring(L, 1);
+  const char *filename = findfile(L, name, "cpath", LUA_CSUBSEP);
+  if (filename == NULL) return 1;  /* module not found in this path */
+  return checkload(L, (loadfunc(L, filename, name) == 0), filename);
+}
+
+
+static int searcher_Croot (lua_State *L) {
+  const char *filename;
+  const char *name = luaL_checkstring(L, 1);
+  const char *p = strchr(name, '.');
+  int stat;
+  if (p == NULL) return 0;  /* is root */
+  lua_pushlstring(L, name, p - name);
+  filename = findfile(L, lua_tostring(L, -1), "cpath", LUA_CSUBSEP);
+  if (filename == NULL) return 1;  /* root not found */
+  if ((stat = loadfunc(L, filename, name)) != 0) {
+    if (stat != ERRFUNC)
+      return checkload(L, 0, filename);  /* real error */
+    else {  /* open function not found */
+      lua_pushfstring(L, "no module '%s' in file '%s'", name, filename);
+      return 1;
+    }
+  }
+  lua_pushstring(L, filename);  /* will be 2nd argument to module */
+  return 2;
+}
+
+
+static int searcher_preload (lua_State *L) {
+  const char *name = luaL_checkstring(L, 1);
+  lua_getfield(L, LUA_REGISTRYINDEX, LUA_PRELOAD_TABLE);
+  if (lua_getfield(L, -1, name) == LUA_TNIL) {  /* not found? */
+    lua_pushfstring(L, "no field package.preload['%s']", name);
+    return 1;
+  }
+  else {
+    lua_pushliteral(L, ":preload:");
+    return 2;
+  }
+}
+
 
 static void findloader (lua_State *L, const char *name) {
   int i;
@@ -666,7 +706,7 @@ static const luaL_Reg ll_funcs[] = {
 
 static void createsearcherstable (lua_State *L) {
   static const lua_CFunction searchers[] =
-    {searcher_Lua, NULL};
+    {searcher_preload, searcher_Lua, searcher_C, searcher_Croot, NULL};
   int i;
   /* create 'searchers' table */
   lua_createtable(L, sizeof(searchers)/sizeof(searchers[0]) - 1, 0);
@@ -680,11 +720,26 @@ static void createsearcherstable (lua_State *L) {
 }
 
 
+/*
+** create table CLIBS to keep track of loaded C libraries,
+** setting a finalizer to close all libraries when closing state.
+*/
+static void createclibstable (lua_State *L) {
+  luaL_getsubtable(L, LUA_REGISTRYINDEX, CLIBS);  /* create CLIBS table */
+  lua_createtable(L, 0, 1);  /* create metatable for CLIBS */
+  lua_pushcfunction(L, gctm);
+  lua_setfield(L, -2, "__gc");  /* set finalizer for CLIBS table */
+  lua_setmetatable(L, -2);
+}
+
+
 LUAMOD_API int luaopen_package (lua_State *L) {
+  createclibstable(L);
   luaL_newlib(L, pk_funcs);  /* create 'package' table */
   createsearcherstable(L);
   /* set paths */
   setpath(L, "path", LUA_PATH_VAR, LUA_PATH_DEFAULT);
+  setpath(L, "cpath", LUA_CPATH_VAR, LUA_CPATH_DEFAULT);
   /* store config information */
   lua_pushliteral(L, LUA_DIRSEP "\n" LUA_PATH_SEP "\n" LUA_PATH_MARK "\n"
                      LUA_EXEC_DIR "\n" LUA_IGMARK "\n");
