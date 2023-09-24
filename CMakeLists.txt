@@ -1,8 +1,5 @@
 cmake_minimum_required (VERSION 3.13)
 set (BINARY "picolua")
-set (PROJ "picolua")
-set (CMAKE_C_FLAGS_RELEASE "-Wall -Wextra")
-set (CMAKE_C_FLAGS_DEBUG "-g -Wall -Wextra")
 include (pico_sdk_import.cmake)
 project (picolua)
 file (GLOB lua_src CONFIGURE_DEPENDS "lua/*.c")
@@ -16,22 +13,31 @@ file (GLOB ymodem_src CONFIGURE_DEPENDS "ymodem/src/*.c")
 pico_sdk_init()
 add_executable (${BINARY} ${klib_src} ${lua_src} ${shell_src} ${interface_src} ${ymodem_src} ${interface_src} ${storage_src} ${bute2_src} ${libluapico_src})
 target_link_libraries (${BINARY} m)
-target_include_directories (${BINARY} PUBLIC lua)
-target_include_directories (${BINARY} PUBLIC klib/include)
-target_include_directories (${BINARY} PUBLIC interface/include)
-target_include_directories (${BINARY} PUBLIC storage/include)
-target_include_directories (${BINARY} PUBLIC storage/include/storage)
-target_include_directories (${BINARY} PUBLIC shell/include)
-target_include_directories (${BINARY} PUBLIC bute2/include)
-target_include_directories (${BINARY} PUBLIC ymodem/include)
-target_include_directories (${BINARY} PUBLIC libluapico/include)
-target_include_directories (${BINARY} PUBLIC ${PROJECT_SOURCE_DIR})
+target_include_directories (
+    ${BINARY} PRIVATE
+    lua
+    klib/include
+    interface/include
+    storage/include
+    storage/include/storage
+    shell/include
+    bute2/include
+    ymodem/include
+    libluapico/include
+    ${PROJECT_SOURCE_DIR}
+)
+target_compile_options (${BINARY} PRIVATE -Wall -Wextra)
+target_compile_definitions (
+    ${BINARY} PRIVATE
+    LUA_32BITS=1
+    "LUA_CPATH_DEFAULT=\"\?.so\""
+    "LUA_PATH_DEFAULT=\"./\?.lua\;./\?/init.lua\;/lib/\?.lua\;/lib/\?/init.lua\""
+)
 pico_enable_stdio_usb (${BINARY} 1)
 pico_enable_stdio_uart (${BINARY} 0)
 pico_add_extra_outputs (${BINARY})
 if (PICO_ON_DEVICE)
-target_link_libraries (${BINARY} pico_stdlib hardware_flash hardware_pwm hardware_sync hardware_adc hardware_i2c)
+    target_link_libraries (${BINARY} pico_stdlib hardware_flash hardware_pwm hardware_sync hardware_adc hardware_i2c)
 else()
-target_link_libraries (${BINARY} pico_stdlib hardware_sync)
+    target_link_libraries (${BINARY} pico_stdlib hardware_sync)
 endif()
-
