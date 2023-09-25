@@ -1,11 +1,12 @@
 /*
-** $Id: lua.c $
+** $Id: lua.c,v 1.230.1.1 2017/04/19 17:29:57 roberto Exp $
 ** Lua stand-alone interpreter
 ** See Copyright Notice in lua.h
 */
 
 #define lua_c
 
+#include "../config.h"
 #include "lprefix.h"
 
 
@@ -20,6 +21,11 @@
 #include "lauxlib.h"
 #include "lualib.h"
 
+#include <interface/interface.h>
+#include <shell/shell.h>
+#include <klib/term.h>
+#include <libluapico/libluapico.h>
+
 
 #if !defined(LUA_PROGNAME)
 #define LUA_PROGNAME		"lua"
@@ -33,6 +39,9 @@
 
 
 static lua_State *globalL = NULL;
+
+// Global Lua state, for use when running code from the editor
+extern lua_State *global_L;
 
 static const char *progname = LUA_PROGNAME;
 
@@ -401,6 +410,22 @@ static int handle_luainit (lua_State *L) {
 #define lua_saveline(L,line)	((void)L, add_history(line))
 #define lua_freeline(L,b)	((void)L, free(b))
 
+#elif defined(PICO_ON_DEVICE)
+
+static uint8_t rl_interrupt = FALSE;
+List* history = NULL;
+
+static int my_read_line(char* buff, int len) {
+  return term_get_line(buff, len, &rl_interrupt, READLINE_MAX_HISTORY, history);
+}
+
+#define lua_initreadline(L)  ((void)L)
+#define lua_readline(L,b,p) \
+        ((void)L, interface_write_string(p), /* show prompt */ \
+        my_read_line(b, LUA_MAXINPUT))  /* get line */
+#define lua_saveline(L,line)	{ (void)L; (void)line; }
+#define lua_freeline(L,b)	{ (void)L; (void)b; }
+
 #else				/* }{ */
 
 #define lua_initreadline(L)  ((void)L)
@@ -558,12 +583,16 @@ static void doREPL (lua_State *L) {
   int status;
   const char *oldprogname = progname;
   progname = NULL;  /* no 'progname' on errors in interactive mode */
+  shell_clear_interrupt();
   lua_initreadline(L);
   while ((status = loadline(L)) != -1) {
-    if (status == LUA_OK)
-      status = docall(L, 0, LUA_MULTRET);
-    if (status == LUA_OK) l_print(L);
-    else report(L, status);
+    if (shell_get_interrupt() == FALSE) {
+      if (status == LUA_OK)
+        status = docall(L, 0, LUA_MULTRET);
+      if (status == LUA_OK) l_print(L);
+      else report(L, status);
+    }
+    shell_clear_interrupt ();
   }
   lua_settop(L, 0);  /* clear stack */
   lua_writeline();
@@ -620,13 +649,16 @@ static int pmain (lua_State *L) {
 }
 
 
-int main (int argc, char **argv) {
+int lua_main (int argc, char **argv) {
   int status, result;
   lua_State *L = luaL_newstate();  /* create state */
   if (L == NULL) {
-    l_message(argv[0], "cannot create state: not enough memory");
+    l_message(argv[0], shell_strerror(ERR_NOMEM));
     return EXIT_FAILURE;
   }
+  history = list_create(free);
+  global_L = L;
+  luapico_init_constants(L);
   lua_pushcfunction(L, &pmain);  /* to call 'pmain' in protected mode */
   lua_pushinteger(L, argc);  /* 1st argument */
   lua_pushlightuserdata(L, argv); /* 2nd argument */
@@ -634,6 +666,8 @@ int main (int argc, char **argv) {
   result = lua_toboolean(L, -1);  /* get result */
   report(L, status);
   lua_close(L);
+  global_L = NULL;
+  list_destroy(history);
   return (result && status == LUA_OK) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 

@@ -16,6 +16,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <shell/shell.h>
+#include <klib/string.h>
+#include <storage/storage.h>
+
 
 /*
 ** This file uses only the official API of Lua.
@@ -685,8 +689,9 @@ LUALIB_API void luaL_unref (lua_State *L, int t, int ref) {
 
 typedef struct LoadF {
   int n;  /* number of pre-read characters */
-  FILE *f;  /* file being read */
+  FileDescriptor f;  /* file being read */
   char buff[BUFSIZ];  /* area for reading file */
+  int readstatus;  /* status of file read */
 } LoadF;
 
 
@@ -701,8 +706,12 @@ static const char *getF (lua_State *L, void *ud, size_t *size) {
     /* 'fread' can return > 0 *and* set the EOF flag. If next call to
        'getF' called 'fread', it might still wait for user input.
        The next check avoids this problem. */
-    if (feof(lf->f)) return NULL;
-    *size = fread(lf->buff, 1, sizeof(lf->buff), lf->f);  /* read block */
+    if (storage_file_eof(&lf->f)) return NULL;
+    /* read block */
+    int32_t read = storage_file_read(&lf->f, lf->buff, sizeof(lf->buff));
+    *size = read > 0 ? read : 0;
+    if (read < 0)
+      lf->readstatus = read;
   }
   return lf->buff;
 }
@@ -722,12 +731,12 @@ static int skipBOM (LoadF *lf) {
   int c;
   lf->n = 0;
   do {
-    c = getc(lf->f);
+    c = storage_file_getc(&lf->f);
     if (c == EOF || c != *(const unsigned char *)p++) return c;
     lf->buff[lf->n++] = c;  /* to be read by the parser */
   } while (*p != '\0');
   lf->n = 0;  /* prefix matched; discard it */
-  return getc(lf->f);  /* return next character */
+  return storage_file_getc(&lf->f);  /* return next character */
 }
 
 
@@ -742,9 +751,9 @@ static int skipcomment (LoadF *lf, int *cp) {
   int c = *cp = skipBOM(lf);
   if (c == '#') {  /* first line is a comment (Unix exec. file)? */
     do {  /* skip first line */
-      c = getc(lf->f);
+      c = storage_file_getc(&lf->f);
     } while (c != EOF && c != '\n');
-    *cp = getc(lf->f);  /* skip end-of-line, if present */
+    *cp = storage_file_getc(&lf->f);  /* skip end-of-line, if present */
     return 1;  /* there was a comment */
   }
   else return 0;  /* no comment */
@@ -754,31 +763,26 @@ static int skipcomment (LoadF *lf, int *cp) {
 LUALIB_API int luaL_loadfilex (lua_State *L, const char *filename,
                                              const char *mode) {
   LoadF lf;
-  int status, readstatus;
+  int status;
   int c;
   int fnameindex = lua_gettop(L) + 1;  /* index of filename on the stack */
   if (filename == NULL) {
-    lua_pushliteral(L, "=stdin");
-    lf.f = stdin;
+    lua_pushstring(L, "cannot open stdin: not supported");
+    return LUA_ERRFILE;
   }
   else {
     lua_pushfstring(L, "@%s", filename);
-    lf.f = fopen(filename, "r");
-    if (lf.f == NULL) return errfile(L, "open", fnameindex);
+    ErrCode err = storage_file_open(filename, STORAGE_O_RDONLY, &lf.f);
+    if (err != 0) return errfile(L, "open", fnameindex);
   }
   if (skipcomment(&lf, &c))  /* read initial portion */
     lf.buff[lf.n++] = '\n';  /* add line to correct line numbers */
-  if (c == LUA_SIGNATURE[0] && filename) {  /* binary file? */
-    lf.f = freopen(filename, "rb", lf.f);  /* reopen in binary mode */
-    if (lf.f == NULL) return errfile(L, "reopen", fnameindex);
-    skipcomment(&lf, &c);  /* re-read initial portion */
-  }
   if (c != EOF)
     lf.buff[lf.n++] = c;  /* 'c' is the first character of the stream */
+  lf.readstatus = 0;
   status = lua_load(L, getF, &lf, lua_tostring(L, -1), mode);
-  readstatus = ferror(lf.f);
-  if (filename) fclose(lf.f);  /* close file (even in case of errors) */
-  if (readstatus) {
+  if (filename) storage_file_close(&lf.f);  /* close file (even in case of errors) */
+  if (lf.readstatus) {
     lua_settop(L, fnameindex);  /* ignore results from 'lua_load' */
     return errfile(L, "read", fnameindex);
   }

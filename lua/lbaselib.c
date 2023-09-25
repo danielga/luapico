@@ -19,6 +19,7 @@
 
 #include "lauxlib.h"
 #include "lualib.h"
+#include <libluapico/libluapico.h>
 
 
 static int luaB_print (lua_State *L) {
@@ -505,6 +506,30 @@ static const luaL_Reg base_funcs[] = {
   {"tostring", luaB_tostring},
   {"type", luaB_type},
   {"xpcall", luaB_xpcall},
+  {"ls", luapico_ls},
+  {"edit", luapico_edit},
+  {"df", luapico_df},
+  {"rm", luapico_rm},
+  {"read", luapico_read},
+  {"write", luapico_write},
+  {"stat", luapico_stat},
+  {"gpio_set_dir", luapico_gpio_set_dir},
+  {"gpio_set_dir_all_bits", luapico_gpio_set_dir_all_bits},
+  {"gpio_set_function", luapico_gpio_set_function},
+  {"gpio_get", luapico_gpio_get},
+  {"gpio_put", luapico_gpio_put},
+  {"gpio_pull_up", luapico_gpio_pull_up},
+  {"sleep_ms", luapico_sleep_ms},
+  {"time_ms", luapico_time_ms},
+  {"pwm_pin_init", luapico_pwm_pin_init},
+  {"pwm_pin_set_level", luapico_pwm_pin_set_level},
+  {"adc_pin_init", luapico_adc_pin_init},
+  {"adc_select_input", luapico_adc_select_input},
+  {"adc_get", luapico_adc_get},
+  {"i2c_init", luapico_i2c_init},
+  {"i2c_write_read", luapico_i2c_write_read},
+  {"readline", luapico_readline},
+  {"execute", luapico_execute},
   /* placeholders */
   {LUA_GNAME, NULL},
   {"_VERSION", NULL},
