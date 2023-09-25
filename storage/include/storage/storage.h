@@ -27,15 +27,43 @@ typedef struct _FileInfo
   char name[STORAGE_NAME_MAX + 1];
   } FileInfo;
 
+typedef struct _FileDescriptor
+  {
+  void *descriptor;
+  } FileDescriptor;
+
+typedef enum _StorageOpenFlags
+  {
+  STORAGE_O_RDONLY = 1,         // Open a file as read only
+  STORAGE_O_WRONLY = 2,         // Open a file as write only
+  STORAGE_O_RDWR   = 3,         // Open a file as read and write
+  STORAGE_O_CREAT  = 0x0100,    // Create a file if it does not exist
+  STORAGE_O_EXCL   = 0x0200,    // Fail if a file already exists
+  STORAGE_O_TRUNC  = 0x0400,    // Truncate the existing file to zero size
+  STORAGE_O_APPEND = 0x0800     // Move to end of file on every write
+  } StorageOpenFlags;
+
 BEGIN_DECLS
 
 extern void    storage_init (void);
 extern void    storage_cleanup (void);
 
-extern ErrCode storage_read_file (const char *filemame, uint8_t **buff,
+extern ErrCode storage_file_open (const char *filename, StorageOpenFlags flags,
+                 FileDescriptor *file);
+extern ErrCode storage_file_close (FileDescriptor *file);
+extern int32_t storage_file_read (FileDescriptor *file, void *buff,
+                 uint32_t n);
+extern int storage_file_getc (FileDescriptor *file);
+extern int32_t storage_file_write (FileDescriptor *file, const void *buf,
+                 uint32_t len);
+extern int32_t storage_file_tell (FileDescriptor *file);
+extern int32_t storage_file_size (FileDescriptor *file);
+extern BOOL storage_file_eof (FileDescriptor *file);
+
+extern ErrCode storage_read_file (const char *filename, uint8_t **buff,
                   int *n);
 
-extern ErrCode storage_read_partial (const char *filemame, int offset, 
+extern ErrCode storage_read_partial (const char *filename, int offset, 
                   int count, uint8_t *buff, int *n);
 
 extern ErrCode storage_write_file (const char *filename, 

@@ -81,6 +81,113 @@ void storage_cleanup (void)
 
 /*=========================================================================
 
+  storage_file_open
+
+=========================================================================*/
+ErrCode storage_file_open (const char *filename, StorageOpenFlags flags,
+          FileDescriptor *file)
+  {
+  file->descriptor = calloc (1, sizeof(lfs_file_t));
+  if (file->descriptor == NULL)
+    return ERR_NOMEM;
+  int err = lfs_file_open(&lfs, (lfs_file_t *)file->descriptor, filename,
+    flags);
+  if (err != LFS_ERR_OK)
+    free(file->descriptor);
+  return (ErrCode) -err;
+  }
+
+/*=========================================================================
+
+  storage_file_close
+
+=========================================================================*/
+ErrCode storage_file_close (FileDescriptor *file)
+  {
+  if (file->descriptor == NULL)
+    return ERR_INVAL;
+  int err = lfs_file_close (&lfs, (lfs_file_t *)file->descriptor);
+  free (file->descriptor);
+  file->descriptor = NULL;
+  return (ErrCode) -err;
+  }
+
+/*=========================================================================
+
+  storage_file_read
+
+=========================================================================*/
+int32_t storage_file_read (FileDescriptor *file, void *buff, uint32_t n)
+  {
+  return (int32_t)lfs_file_read(&lfs, (lfs_file_t *)file->descriptor, buff,
+                    n);
+  }
+
+/*=========================================================================
+
+  storage_file_getc
+
+=========================================================================*/
+int storage_file_getc (FileDescriptor *file)
+  {
+  char c = 0;
+  lfs_ssize_t read = lfs_file_read(&lfs, (lfs_file_t *)file->descriptor, &c,
+                       1);
+  return read == 1 ? c : EOF;
+  }
+
+/*=========================================================================
+
+  storage_file_write
+
+=========================================================================*/
+int32_t storage_file_write (FileDescriptor *file, const void *buf,
+          uint32_t len)
+  {
+  return (int32_t)lfs_file_write (&lfs, (lfs_file_t *)file->descriptor, buf,
+                    len);
+  }
+
+/*=========================================================================
+
+  storage_file_tell
+
+=========================================================================*/
+int32_t storage_file_tell (FileDescriptor *file)
+  {
+  return (int32_t)lfs_file_tell (&lfs, (lfs_file_t *)file->descriptor);
+  }
+
+/*=========================================================================
+
+  storage_file_size
+
+=========================================================================*/
+int32_t storage_file_size (FileDescriptor *file)
+  {
+  return (int32_t)lfs_file_size (&lfs, (lfs_file_t *)file->descriptor);
+  }
+
+/*=========================================================================
+
+  storage_file_eof
+
+=========================================================================*/
+BOOL storage_file_eof (FileDescriptor *file)
+  {
+  lfs_soff_t offset = lfs_file_tell (&lfs, (lfs_file_t *)file->descriptor);
+  if (offset < 0)
+    return TRUE;
+
+  lfs_soff_t size = lfs_file_size (&lfs, (lfs_file_t *)file->descriptor);
+  if (size < 0)
+    return TRUE;
+
+  return offset == size;
+  }
+
+/*=========================================================================
+
   storage_write_file
 
 =========================================================================*/
