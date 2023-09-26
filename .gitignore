@@ -1,2 +1,3 @@
-build_pico
-build_host
+/build/
+/build_pico/
+/build_host/
