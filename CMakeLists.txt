@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 3.13)
 set (BINARY "picolua")
 include (pico_sdk_import.cmake)
-project (picolua)
+project (picolua CXX C ASM)
 file (GLOB lua_src CONFIGURE_DEPENDS "lua/*.c")
 list (REMOVE_ITEM lua_src "${CMAKE_CURRENT_SOURCE_DIR}/lua/lua.c" "${CMAKE_CURRENT_SOURCE_DIR}/lua/luac.c")
 file (GLOB shell_src CONFIGURE_DEPENDS "shell/src/*.c")
@@ -29,14 +29,20 @@ target_include_directories (
 )
 target_link_options (
     ${BINARY} PRIVATE
-    -Wl,--wrap=remove
-    -Wl,--wrap=rename
-    -Wl,--wrap=fopen
-    -Wl,--wrap=fopen64
-    -Wl,--wrap=freopen
-    -Wl,--wrap=freopen64
-    -Wl,--wrap=tmpfile
-    -Wl,--wrap=tmpfile64
+    # -Wl,--wrap=remove
+    # -Wl,--wrap=rename
+    # -Wl,--wrap=fopen
+    # -Wl,--wrap=fopen64
+    # -Wl,--wrap=freopen
+    # -Wl,--wrap=freopen64
+    # -Wl,--wrap=tmpfile
+    # -Wl,--wrap=tmpfile64
+    -Wl,--wrap=open
+    -Wl,--wrap=close
+    -Wl,--wrap=read
+    -Wl,--wrap=write
+    -Wl,--wrap=lseek
+    -Wl,--wrap=fstat
 )
 target_compile_options (
     ${BINARY} PRIVATE

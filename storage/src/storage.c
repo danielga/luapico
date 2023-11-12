@@ -17,6 +17,7 @@
 #include <shell/shell.h>
 #include "storage/storage.h"
 #include "storage/lfs.h"
+#include <fcntl.h>
 
 extern char *itoa (int n, char *buff, int base);
 
@@ -144,6 +145,7 @@ int storage_file_getc (FileDescriptor *file)
 int32_t storage_file_write (FileDescriptor *file, const void *buf,
           uint32_t len)
   {
+  open("", 0);
   return (int32_t)lfs_file_write (&lfs, (lfs_file_t *)file->descriptor, buf,
                     len);
   }
